@@ -41,8 +41,8 @@ module.exports = class ServerChat {
             socket.user = new User(socket.id, pseudo, "Général");
             
             this.users.push(socket.user);
-            socket.emit('server:user:connected');
-            this.io.emit('server:user:list', this.users.map(user => user));
+            socket.emit('server:user:connected', socket.id);
+            this.io.emit('server:user:list', this.users.map(user => user), socket.user.pseudo);
             this.joinChannel(socket, 'Général');
             console.log(socket.user)
         }
@@ -54,7 +54,7 @@ module.exports = class ServerChat {
             let index = this.users.findIndex(user => user.pseudo == socket.user.pseudo);
             if (index != -1) {
                 this.users.splice(index, 1);
-                this.io.emit('server:user:list', this.users.map(user => user));
+                this.io.emit('server:user:list', this.users.map(user => user), socket.user.pseudo);
             }
             socket.emit('server:user:disconnect');
         }
@@ -82,7 +82,7 @@ module.exports = class ServerChat {
         // console.log("channelName, socket.user.channel", channelName, socket.user.channel)
         let index = this.channels.findIndex(channel => channel.name == channelName);
         //quand la personne se connecte à une room elle quitte la room precedente
-        if (index != -1) {
+        if (index != -1 && socket.user) {
             socket.leave(socket.user.channel);
             socket.user.channel = channelName;
             socket.join(socket.user.channel);
@@ -95,48 +95,41 @@ module.exports = class ServerChat {
                 }
             })
             socket.emit('server:messages:send', messages);
-            this.io.emit('server:user:list', this.users.map(user => user));
+            this.io.emit('server:user:list', this.users.map(user => user), socket.user.pseudo);
         } else {
             console.log(`le client ${socket.id} (pseudo : ${socket.user.pseudo}) a
                       tenté une connexion sur un salon inexistant`);
         }
     }
 
-    createPrivateChannel(socket, user, id){
+    createPrivateChannel(socket, hisPseudo, hisId){
      // Vérifier que le user existe dans le tableau users et que ce ne soit pas lui même (socket)
-        if(this.users.includes(socket.user)&&socket.user.id!==id){
-        //  On crée un nouveau channel (true = private)
-        let newPrivateChannel = new Channel(`discussion entre ${socket.user.pseudo} et ${user}`, true);
+        if(this.users.includes(socket.user) && socket.user.id!==hisId){
+        //  On crée un nouveau channel privé (true = private)
+        let newPrivateChannel = new Channel(`discussion entre ${socket.user.pseudo} et ${hisPseudo}`, true);
         // on pousse le nouveau channel dans la liste de tout les channels (il est en privé)
         this.channels.push(newPrivateChannel);
         // On ajoute à l'utilisateur (initiateur) le channel private
         socket.user.addPrivateChannel(newPrivateChannel);
-        // On ajoute à notre utilisateur le channel private
-        this.users.filter(user => user.id == id)[0].addPrivateChannel(newPrivateChannel);
-        /*
-        console.log("socket, user", socket.user, user, id);
-        let myNewChannel = `Discussion privé avec ${user}`;
-        let newChannelForSecondUser = `Discussion privé avec ${socket.user.pseudo}`
-        //TODO ajouter condition si channel n'existe pas deja
-        this.channels.push(new Channel(myNewChannel, true));
-        this.channels.push(new Channel(newChannelForSecondUser, true));
-        // console.log("this.channels", this.channels);
-        let listWithoutNewChannelForSecondUser = this.channels.filter(channel => channel.name!==newChannelForSecondUser);
-        let listWithoutmyNewChannel = this.channels.filter(channel => channel.name!==myNewChannel);
-        // console.log("listWithoutNewChannelForSecondUser", listWithoutNewChannelForSecondUser);
-        */
-
+        // On ajoute à notre second utilisateur le channel private
+        this.users.filter(user => user.id == hisId)[0].addPrivateChannel(newPrivateChannel);
+        // on filtre les channels uniquement privées
         let publicChannels = this.channels.filter(channel => channel.isPrivate==false).map(channel => channel.name)
+        // on recupere les channel de l'utilisateur initateur de la discussion
         let myChannels = socket.user.privateChannels.map(channel => channel.name);
-        let hisChannels = this.users.filter(user => user.id == id)[0].privateChannels.map(channel => channel.name);
+        // on recupere les channel du second utilsateur interlocuteur
+        let hisChannels = this.users.filter(user => user.id == hisId)[0].privateChannels.map(channel => channel.name);
         // console.log(publicChannels, myChannels)
+        //on envoi en emission individuel la bonne liste du bon utilisateur https://socket.io/docs/v4/emit-cheatsheet/
+        // to individual socketid (private message)
+        //io.to(socketId).emit(/* ... */);
         this.io.to(socket.user.id).emit('server:channel:list', publicChannels.concat(myChannels));
-        this.io.to(id).emit('server:channel:list', publicChannels.concat(hisChannels));
-
+        this.io.to(hisId).emit('server:channel:list', publicChannels.concat(hisChannels));
         }else{
-            console.log("no")
+            console.log("no");
+            //TODO envoi msg au front?
         }
-   
+
     }
 
 

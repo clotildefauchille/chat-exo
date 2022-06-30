@@ -1,4 +1,3 @@
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect } from "https://www.gstatic.com/firebasejs/9.8.4/firebase-auth.js";
 import UI from './UserInterface.js';
 //ici on gere les ecouteur d'evenemet et toute la communication avec le serveur
 export default class ClientChat {
@@ -21,9 +20,10 @@ export default class ClientChat {
 
     listenServer() {
         this.socket.on('server:user:pseudo_exists', this.UI.pseudoChoice.bind(this, true));
-        this.socket.on('server:user:connected', this.UI.connectUser);
-        this.socket.on('server:user:disconnect', this.UI.disconnectUser)
-        this.socket.on('server:user:list', this.UI.listUsers);
+        this.socket.on('server:user:connected', this.UI.connectUser.bind(this));
+        //attention au disconnect bind(this.UI) pour recupérer la valeur de this.pseudo
+        this.socket.on('server:user:disconnect', this.UI.disconnectUser.bind(this.UI));
+        this.socket.on('server:user:list', this.UI.listUsers.bind(this.UI));
         //reception d'un message
         //[message] pour que l'interface aussi bien qd il y a 1 ou plusieurs msg
         this.socket.on('server:message:send', (message)=>{ return this.UI.listMessages([message], false);});
@@ -35,32 +35,16 @@ export default class ClientChat {
     }
 
     transmitPseudoServer(){
-        let input = document.querySelector('input');
-        // input.addEventListener('change', (function(e) {
-        //     this.socket.emit('client:user:pseudo', e.target.value);
-        // }).bind(this));
-        // equivaut à : car ac fonction flechéeplus besoin du bind
-        input.addEventListener('change', ((e) =>{
-            // console.log('e.target.value', e.target.value);
-            if (e.target.value !== null && e.target.value !== ''){
-                this.socket.emit('client:user:pseudo', e.target.value);
-            }
-        }));
-
-        //cas de la connexion avec google
-        let firebaseButton = document.getElementById("firebase");
-        firebaseButton.addEventListener("click", (e) => {
-            console.log("je veux me co ac google");
-            signInWithPopup(getAuth(), new GoogleAuthProvider()).then((result) => {
-                console.log(result.user.displayName);
-                if (result.user.displayName !== null && result.user.displayName !== '') {
-                    this.socket.emit('client:user:pseudo', result.user.displayName);
-                }
-            }).catch(function (error) {
-                console.log(error);
-            });
-
+        //cas connection normal
+        document.addEventListener('local:user:change', (e)=>{
+            // console.log("e.detail.pseudo", e.detail.pseudo);
+            this.socket.emit('client:user:pseudo', e.detail.pseudo);
         })
+        //cas connection via google
+        document.addEventListener('local:user:google_pseudo', (e)=>{
+            // console.log("e.detail.pseudo", e.detail.pseudo);
+            this.socket.emit('client:user:pseudo', e.detail.pseudo);
+        })  
     }
 
     transmitUiServer() {

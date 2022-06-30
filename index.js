@@ -44,7 +44,7 @@ const server = http.createServer((req, res) => {
 });
 
 
- server.listen(8000, () => {
+ server.listen(process.env.PORT || 8000, () => {
     console.log(`http://localhost:8000`)
 });
 
@@ -52,47 +52,3 @@ const ServerChat = require('./app/ServerChat.js');
 new ServerChat(server);
 
 
-// const io = require('socket.io')(server);
-
-
-// let users = ["clo", "truc", "much"];
-// io.on('connection', (socket) => {
-//     socket.on('client:user:pseudo', (pseudo) => {
-//      console.log("un client se connecte")
-//      console.log("pseudo", pseudo)
-//         if (users.includes(pseudo)) {
-//             socket.emit('server:user:pseudo_exists');
-//         }
-//         else {
-//             users.push(pseudo);
-//             console.log('je push le pseudo')
-//             socket.emit('server:user:connected');
-//             socket.pseudo = pseudo;
-//             io.emit('server:user:list', users); 
-//         }
-//     })
-
-    
-// //TODO refacto
-//     socket.on('disconnect', () => {
-//         if (socket.pseudo != undefined) {
-//             let index = users.indexOf(socket.pseudo);
-//             if (index != -1) {
-//                 users.splice(index, 1);
-//                 io.emit('server:user:list', users);
-//             }
-//         }
-//     })
-//     socket.on('client:user:disconnect', () => {
-//         console.log('je veux me deconnecter')
-//         if (socket.pseudo != undefined) {
-//             let index = users.indexOf(socket.pseudo);
-//             if (index != -1) {
-//                 users.splice(index, 1);
-//                 io.emit('server:user:list', users);
-//             }
-//         }
-//     })
-
-//     console.log("users", users)
-// });
